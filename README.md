@@ -1,8 +1,8 @@
-# 🏍️ Sistem Keamanan Kendaraan Berbasis ESP32
+#  Sistem Keamanan Kendaraan Berbasis ESP32
 
 Sistem keamanan kendaraan yang mendeteksi getaran/guncangan tidak wajar pada kendaraan, otomatis memutus aliran listrik (relay), membunyikan alarm, dan melacak lokasi kendaraan lewat GPS — semua bisa dipantau dan dikontrol dari dashboard web secara real-time.
 
-## ✨ Fitur
+##  Fitur
 
 - **Deteksi getaran real-time** menggunakan sensor getaran (SW-420) yang dibaca lewat interrupt, sehingga respons terjadi seketika tanpa delay dari loop program.
 - **Pemutus relay otomatis** — begitu getaran terdeteksi, relay langsung memutus aliran listrik kendaraan dan buzzer alarm menyala.
@@ -13,7 +13,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/guncangan tidak wajar pada ken
 - **Dual endpoint (server utama + lokal)** — ESP32 otomatis mencoba alamat lokal (fallback) jika server utama tidak bisa dihubungi.
 - **Migrasi database otomatis** — tabel MySQL dibuat dan diperbaiki otomatis oleh `db.php`, tidak perlu import SQL manual.
 
-## 🧰 Arsitektur & Teknologi
+##  Arsitektur & Teknologi
 
 | Bagian | Teknologi |
 |---|---|
@@ -26,7 +26,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/guncangan tidak wajar pada ken
 
 Alur singkat: ESP32 membaca sensor getaran & GPS → mengirim status ke server via `update_status.php` tiap ±5 detik → dashboard mem-poll `get_status.php` tiap 2 detik untuk menampilkan status terkini → perintah dari dashboard (misal sambungkan relay) disimpan lewat `send_command.php`, diambil ESP32 lewat `get_command.php`, lalu dikonfirmasi lewat `ack_command.php`.
 
-## 📁 Struktur Project
+##  Struktur Project
 
 ```
 ├── ESP32/
@@ -45,7 +45,7 @@ Alur singkat: ESP32 membaca sensor getaran & GPS → mengirim status ke server v
 └── style.css                 # Styling dashboard
 ```
 
-## 🚀 Instalasi & Setup
+##  Instalasi & Setup
 
 ### 1. Server (dashboard)
 1. Clone repo ini ke folder `htdocs` XAMPP (atau hosting PHP + MySQL lain).
@@ -74,19 +74,19 @@ Alur singkat: ESP32 membaca sensor getaran & GPS → mengirim status ke server v
 | Buzzer | 25 |
 | GPS RX / TX | 16 / 17 |
 
-## 🌐 Akses dari luar jaringan lokal (opsional)
+##  Akses dari luar jaringan lokal (opsional)
 
 Jika server berjalan di localhost/XAMPP, gunakan tunnel seperti `localhost.run` agar bisa diakses ESP32 dari luar:
 ```
 ssh -R 80:localhost:80 nokey@localhost.run
 ```
 
-## 📌 Catatan
+##  Catatan
 
 - Perintah dari dashboard hanya diperbolehkan untuk kontrol relay (`command = "relay"`), demi keamanan.
 - Getaran yang terdeteksi selalu diproses langsung di ESP32 lewat interrupt — tidak menunggu respons server, sehingga sistem tetap aman meski internet mati.
 - ESP32 dianggap offline oleh dashboard jika tidak mengirim heartbeat selama lebih dari 20 detik.
 
-## 👤 Author
+##  Author
 
 Dikembangkan oleh **Syaepuddin** — Mahasiswa Teknik Komputer, Universitas Hamzanwadi.
