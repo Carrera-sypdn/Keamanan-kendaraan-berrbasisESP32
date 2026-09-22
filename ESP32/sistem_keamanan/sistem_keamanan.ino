@@ -4,12 +4,13 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <RCSwitch.h>
 
 // =====================================================
 // WIFI
 // =====================================================
-const char* ssid     = "NAMA WIFI";
-const char* password = "PASSWORD";
+const char* ssid     = "ery";
+const char* password = "12345678910";
 
 // =====================================================
 // PENYIMPANAN LINK WEB
@@ -24,6 +25,11 @@ String localBaseUrl = "";
 #define PIN_SENSOR 27
 #define PIN_RELAY  26
 #define PIN_BUZZER 25
+
+// RX500
+#define PIN_RX500_DO 32
+const unsigned long KODE_REMOTE = 2451281;
+const unsigned long JEDA_RX500 = 500;
 
 // GPS
 #define GPS_RX 16
@@ -52,6 +58,9 @@ const unsigned long GETARAN_DEBOUNCE = 150;
 unsigned long getaranNormalSejak = 0;
 const unsigned long GETARAN_NORMAL_DELAY = 500;
 
+RCSwitch rx500 = RCSwitch();
+unsigned long waktuRX500Terakhir = 0;
+
 void IRAM_ATTR deteksiGetaranInterrupt() {
 
   unsigned long sekarang = millis();
@@ -73,6 +82,49 @@ void IRAM_ATTR deteksiGetaranInterrupt() {
 
 // Sensor belum aktif selama startup
 bool sensorAktif = false;
+
+void terapkanRelayAbsolut(bool putus, const char* sumber) {
+
+  relayManualTerputus = putus;
+  relayTerputus = putus;
+  getaranInterrupt = false;
+
+  if (putus) {
+    overrideGetaran = false;
+    digitalWrite(PIN_BUZZER, LOW);
+    digitalWrite(PIN_RELAY, HIGH);
+  } else {
+    overrideGetaran = true;
+    overrideGetaranMulai = millis();
+    digitalWrite(PIN_RELAY, LOW);
+    digitalWrite(PIN_BUZZER, LOW);
+  }
+
+  Serial.print("[");
+  Serial.print(sumber);
+  Serial.print("] Relay: ");
+  Serial.println(putus ? "TERPUTUS" : "TERHUBUNG");
+}
+
+void bacaRX500() {
+
+  if (!rx500.available()) {
+    return;
+  }
+
+  unsigned long nilaiSinyal = rx500.getReceivedValue();
+
+  if (
+    nilaiSinyal == KODE_REMOTE &&
+    millis() - waktuRX500Terakhir >= JEDA_RX500
+  ) {
+    // Kondisi awal relay terhubung; tombol pertama memutus relay.
+    terapkanRelayAbsolut(!relayTerputus, "RX500");
+    waktuRX500Terakhir = millis();
+  }
+
+  rx500.resetAvailable();
+}
 
 // =====================================================
 // STARTUP ANTI FALSE-TRIGGER
@@ -167,6 +219,8 @@ void setup() {
 
   pinMode(PIN_RELAY, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
+
+  rx500.enableReceive(PIN_RX500_DO);
 
   // ---------------------------------------------------
   // KONDISI AWAL
@@ -316,6 +370,9 @@ void loop() {
       Serial.println();
     }
   }
+
+  // RX500 memakai nilai level stabil sebagai perintah absolut relay.
+  bacaRX500();
 
   // ===================================================
   // 3. SENSOR GETARAN
@@ -1007,56 +1064,13 @@ void cekPerintah() {
 
           // Perintah PUTUS
           if (val == 1) {
-
-            overrideGetaran = false;
-            relayManualTerputus = true;
-            relayTerputus = true;
-            getaranInterrupt = false;
-
-            digitalWrite(
-              PIN_BUZZER,
-              LOW
-            );
-
-            digitalWrite(
-              PIN_RELAY,
-              HIGH
-            );
-
-            Serial.println(
-              "[Dashboard] Relay: TERPUTUS"
-            );
-
+            terapkanRelayAbsolut(true, "Dashboard");
             hasil = "applied";
           }
 
           // Perintah SAMBUNG
           else if (val == 0) {
-
-            /*
-             * Perintah sambung dari dashboard menjadi override manual.
-             * Relay tetap hidup walaupun sensor sedang HIGH.
-             */
-            overrideGetaran = true;
-            relayManualTerputus = false;
-            overrideGetaranMulai = millis();
-            getaranInterrupt = false;
-            relayTerputus = false;
-
-            digitalWrite(
-              PIN_RELAY,
-              LOW
-            );
-
-            digitalWrite(
-              PIN_BUZZER,
-              LOW
-            );
-
-            Serial.println(
-              "[Dashboard] Relay: TERHUBUNG (override getaran aktif)"
-            );
-
+            terapkanRelayAbsolut(false, "Dashboard");
             hasil = "applied";
           }
 
