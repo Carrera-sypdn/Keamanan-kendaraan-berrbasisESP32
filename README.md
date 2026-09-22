@@ -1,92 +1,91 @@
-#  Sistem Keamanan Kendaraan Berbasis ESP32
+# 🏍️ Sistem Keamanan Kendaraan Berbasis ESP32
 
-Sistem keamanan kendaraan yang mendeteksi getaran/guncangan tidak wajar pada kendaraan, otomatis memutus aliran listrik (relay), membunyikan alarm, dan melacak lokasi kendaraan lewat GPS — semua bisa dipantau dan dikontrol dari dashboard web secara real-time.
+Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus tegangan kendaraan secara otomatis, mengirim posisi GPS, dan bisa dipantau/dikontrol lewat dashboard web — dengan respons alarm yang **tetap jalan secara lokal di ESP32** walaupun internet atau server sedang mati.
 
-##  Fitur
+## ✨ Fitur
 
-- **Deteksi getaran real-time** menggunakan sensor getaran (SW-420) yang dibaca lewat interrupt, sehingga respons terjadi seketika tanpa delay dari loop program.
-- **Pemutus relay otomatis** — begitu getaran terdeteksi, relay langsung memutus aliran listrik kendaraan dan buzzer alarm menyala.
-- **Bekerja tanpa internet** — respons keamanan (relay + buzzer) sepenuhnya diproses lokal di ESP32, tidak bergantung pada koneksi ke server.
-- **Pelacakan lokasi GPS** menggunakan modul GPS NEO-6M (via TinyGPS++), ditampilkan di peta interaktif (Leaflet + OpenStreetMap) pada dashboard.
-- **Dashboard web real-time** (PHP + MySQL) menampilkan status getaran, status relay, status koneksi ESP32 (heartbeat), dan lokasi GPS, dengan polling otomatis tiap 2 detik.
-- **Kontrol relay jarak jauh** — relay bisa disambungkan kembali dari dashboard, dikirim sebagai command yang diambil (poll) oleh ESP32 dan dikonfirmasi lewat sistem ACK.
-- **Dual endpoint (server utama + lokal)** — ESP32 otomatis mencoba alamat lokal (fallback) jika server utama tidak bisa dihubungi.
-- **Migrasi database otomatis** — tabel MySQL dibuat dan diperbaiki otomatis oleh `db.php`, tidak perlu import SQL manual.
+- **Deteksi getaran** via sensor (pin 27) — saat getaran terdeteksi, ESP32 langsung memutus relay (pin 26) dan membunyikan buzzer (pin 25) tanpa menunggu respons server.
+- **GPS real-time** menggunakan modul NEO-6M (TinyGPS++) untuk melacak lokasi kendaraan.
+- **Kontrol relay jarak jauh** dari dashboard web (nyala/matikan aliran listrik kendaraan).
+- **Remote RF (RX500)** sebagai kontrol tambahan selain dashboard.
+- **Dashboard web** (PHP + MySQL) menampilkan status getaran, relay, koneksi ESP32, dan posisi GPS di peta (Leaflet).
+- **Auto-migrasi database** — tabel dibuat/diperbaiki otomatis oleh `db.php`, tidak perlu import `schema.sql` manual.
+- **Link server dinamis** — ESP32 membaca base URL dashboard dari GitHub Gist, jadi tidak perlu flash ulang firmware setiap kali link tunnel (ngrok/localhost.run) berubah.
+- **Komunikasi via HTTP polling**, bukan MQTT — dipilih karena hosting gratis (mis. AeonFree) memblokir koneksi MQTT ke ESP32 lewat JS-challenge anti-bot.
 
-##  Arsitektur & Teknologi
-
-| Bagian | Teknologi |
-|---|---|
-| Firmware | ESP32 (Arduino, C++), TinyGPS++, ArduinoJson, HTTPClient |
-| Sensor | Sensor getaran SW-420, GPS NEO-6M |
-| Aktuator | Relay module, buzzer DC |
-| Backend | PHP + MySQL (mysqli, prepared statements) |
-| Frontend | HTML/CSS/JS vanilla + Leaflet.js (peta) |
-| Komunikasi | HTTP polling (bukan MQTT) antara ESP32 ↔ server |
-
-Alur singkat: ESP32 membaca sensor getaran & GPS → mengirim status ke server via `update_status.php` tiap ±5 detik → dashboard mem-poll `get_status.php` tiap 2 detik untuk menampilkan status terkini → perintah dari dashboard (misal sambungkan relay) disimpan lewat `send_command.php`, diambil ESP32 lewat `get_command.php`, lalu dikonfirmasi lewat `ack_command.php`.
-
-##  Struktur Project
+## 🗂️ Struktur Folder
 
 ```
 ├── ESP32/
-│   └── sistem_keamanan.ino   # Firmware ESP32
+│   └── sistem_keamanan/
+│       └── sistem_keamanan.ino   # Firmware ESP32 (Arduino)
 ├── api/
-│   ├── update_status.php     # Terima status dari ESP32
-│   ├── get_status.php        # Kirim status terkini ke dashboard
-│   ├── send_command.php      # Dashboard mengirim perintah relay
-│   ├── get_command.php       # ESP32 mengambil perintah tertunda
-│   ├── ack_command.php       # ESP32 konfirmasi perintah sudah dijalankan
-│   └── command_status.php    # Cek status eksekusi sebuah perintah
-├── db.php                    # Koneksi & migrasi database otomatis
-├── schema.sql                # Dokumentasi struktur tabel (opsional, tidak wajib di-import)
-├── index.php                 # Halaman dashboard
-├── app.js                    # Logic frontend (polling, peta, kontrol relay)
-└── style.css                 # Styling dashboard
+│   ├── get_status.php            # Ambil status terbaru ESP32 untuk dashboard
+│   ├── update_status.php         # ESP32 mengirim status (getaran, relay, GPS) ke server
+│   ├── send_command.php          # Dashboard mengirim perintah relay ke ESP32
+│   ├── get_command.php           # ESP32 mengambil perintah relay yang tertunda
+│   ├── ack_command.php           # ESP32 mengonfirmasi perintah sudah dijalankan
+│   └── command_status.php        # Cek status eksekusi sebuah perintah
+├── db.php                        # Koneksi database + auto-migrasi skema
+├── schema.sql                    # Dokumentasi struktur tabel (tidak wajib di-import)
+├── index.php                     # Halaman dashboard
+├── app.js                        # Logika frontend dashboard (polling status, kontrol relay, peta)
+├── style.css                     # Styling dashboard
+├── start_all.bat                 # Menyalakan Apache/MySQL (XAMPP) + SSH tunnel
+├── stop_all.bat                  # Mematikan semuanya
+└── cmd.txt                       # Contoh perintah SSH tunnel (localhost.run)
 ```
 
-##  Instalasi & Setup
+## ⚙️ Cara Kerja Singkat
 
-### 1. Server (dashboard)
-1. Clone repo ini ke folder `htdocs` XAMPP (atau hosting PHP + MySQL lain).
-2. Buat database MySQL, lalu sesuaikan kredensial di `db.php` (`$DB_HOST`, `$DB_USER`, `$DB_PASS`, `$DB_NAME`). Tabel akan dibuat otomatis saat pertama kali diakses.
-3. Jalankan Apache & MySQL, lalu akses `index.php` lewat browser.
+1. ESP32 membaca sensor getaran & GPS, lalu setiap ±5 detik mengirim status ke `api/update_status.php` (heartbeat).
+2. Dashboard (`index.php` + `app.js`) polling `api/get_status.php` untuk menampilkan status terkini dan lokasi di peta.
+3. Saat getaran terdeteksi: **relay langsung diputus dan buzzer dibunyikan oleh ESP32 sendiri** (di dalam interrupt handler), tidak menunggu request ke server — ini yang membuat alarm tetap bekerja walau internet mati.
+4. Kontrol relay manual dari dashboard dikirim lewat `api/send_command.php`, lalu ESP32 mengambilnya via `api/get_command.php` dan mengonfirmasi lewat `api/ack_command.php`.
+5. Karena link tunnel (ngrok/localhost.run) berubah setiap restart, base URL server disimpan di GitHub Gist dan dibaca otomatis oleh ESP32 (`Preferences`) — tidak perlu flash ulang firmware setiap ganti link.
 
-### 2. Firmware ESP32
-1. Buka `ESP32/sistem_keamanan.ino` di Arduino IDE.
-2. Install library: `TinyGPS++`, `ArduinoJson`, `Preferences` (built-in ESP32 core).
-3. Isi `ssid` dan `password` WiFi kamu di bagian atas file.
-4. Upload ke board ESP32.
-5. Set alamat server lewat Serial Monitor dengan perintah:
-   ```
-   link="https://domain-kamu.com/nama-folder/api"
-   ```
-   atau untuk alamat lokal jaringan:
-   ```
-   linklocal="http://192.168.1.10/nama-folder/api"
-   ```
+## 🧰 Kebutuhan
 
-### 3. Pemetaan pin
-| Komponen | Pin ESP32 |
-|---|---|
-| Sensor getaran | 27 |
-| Relay | 26 |
-| Buzzer | 25 |
-| GPS RX / TX | 16 / 17 |
+**Hardware:**
+- ESP32
+- Sensor getaran (SW-420 atau sejenis) di pin 27
+- Modul relay di pin 26
+- Buzzer DC di pin 25
+- Modul GPS NEO-6M (RX/TX di pin 16/17)
+- Modul penerima RF RX500 (opsional, untuk remote)
 
-##  Akses dari luar jaringan lokal (opsional)
+**Software:**
+- Arduino IDE / PlatformIO dengan library: `TinyGPS++`, `WiFi`, `WiFiClientSecure`, `HTTPClient`, `ArduinoJson`, `Preferences`, `RCSwitch`
+- XAMPP (Apache + MySQL/PHP) untuk menjalankan backend secara lokal
+- SSH client (untuk tunnel `localhost.run`) atau ngrok, agar ESP32 bisa mengakses server lokal dari luar jaringan
 
-Jika server berjalan di localhost/XAMPP, gunakan tunnel seperti `localhost.run` agar bisa diakses ESP32 dari luar:
-```
-ssh -R 80:localhost:80 nokey@localhost.run
-```
+## 🚀 Instalasi & Menjalankan
 
-##  Catatan
+1. **Database** — buat database MySQL (nama sesuai `db.php`, default: `keamanan_kendaraan`). Struktur tabel dibuat otomatis saat `db.php` pertama kali diakses, jadi `schema.sql` tidak wajib di-import.
+2. **Konfigurasi `db.php`** — sesuaikan `$DB_HOST`, `$DB_USER`, `$DB_PASS`, `$DB_NAME` dengan kredensial database kamu. **Jangan commit kredensial database produksi ke repo publik.**
+3. **Firmware ESP32** — buka `ESP32/sistem_keamanan/sistem_keamanan.ino` di Arduino IDE, isi SSID/password WiFi sendiri, lalu upload ke board. Base URL dashboard diambil otomatis dari Gist yang dikonfigurasi di kode.
+4. **Jalankan server** — di Windows, edit path `XAMPP_DIR` di `start_all.bat` sesuai lokasi instalasi XAMPP, lalu jalankan `start_all.bat` (otomatis menyalakan Apache, MySQL, dan membuka SSH tunnel ke `localhost.run`). Gunakan `stop_all.bat` untuk menghentikan semuanya.
+5. **Akses dashboard** — buka URL tunnel yang muncul (atau `http://localhost/`) di browser.
 
-- Perintah dari dashboard hanya diperbolehkan untuk kontrol relay (`command = "relay"`), demi keamanan.
-- Getaran yang terdeteksi selalu diproses langsung di ESP32 lewat interrupt — tidak menunggu respons server, sehingga sistem tetap aman meski internet mati.
-- ESP32 dianggap offline oleh dashboard jika tidak mengirim heartbeat selama lebih dari 20 detik.
+## 🔌 Ringkasan API
 
+| Endpoint | Method | Dipanggil oleh | Fungsi |
+|---|---|---|---|
+| `api/update_status.php` | POST | ESP32 | Mengirim status getaran, relay, GPS (heartbeat) |
+| `api/get_status.php` | GET | Dashboard | Mengambil status terbaru untuk ditampilkan |
+| `api/send_command.php` | POST | Dashboard | Mengirim perintah kontrol relay |
+| `api/get_command.php` | GET | ESP32 | Mengambil perintah relay yang belum dieksekusi |
+| `api/ack_command.php` | POST | ESP32 | Konfirmasi perintah sudah/tidak dijalankan |
+| `api/command_status.php` | GET | Dashboard | Cek status eksekusi sebuah perintah |
+
+## 🔒 Catatan Keamanan
+
+- Jangan commit SSID/password WiFi asli maupun kredensial database produksi ke repository publik — gunakan nilai placeholder di kode yang diunggah.
+- `send_command.php` sengaja dibatasi hanya menerima perintah `relay` dari web, untuk mencegah penyalahgunaan endpoint.
+
+## 📌 Status
+
+Proyek dalam pengembangan aktif — kontribusi/perubahan berikutnya dicatat lewat commit history di repo ini.
 ##  Author
 
 Dikembangkan oleh **Syaepuddin** — Mahasiswa Teknik Komputer, Universitas Hamzanwadi.
