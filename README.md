@@ -1,8 +1,8 @@
-# 🏍️ Sistem Keamanan Kendaraan Berbasis ESP32
+#  Sistem Keamanan Kendaraan Berbasis ESP32
 
 Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus tegangan kendaraan secara otomatis, mengirim posisi GPS, dan bisa dipantau/dikontrol lewat dashboard web — dengan respons alarm yang **tetap jalan secara lokal di ESP32** walaupun internet atau server sedang mati.
 
-## ✨ Fitur
+##  Fitur
 
 - **Deteksi getaran** via sensor (pin 27) — saat getaran terdeteksi, ESP32 langsung memutus relay (pin 26) dan membunyikan buzzer (pin 25) tanpa menunggu respons server.
 - **GPS real-time** menggunakan modul NEO-6M (TinyGPS++) untuk melacak lokasi kendaraan.
@@ -13,7 +13,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus t
 - **Link server dinamis** — ESP32 membaca base URL dashboard dari GitHub Gist, jadi tidak perlu flash ulang firmware setiap kali link tunnel (ngrok/localhost.run) berubah.
 - **Komunikasi via HTTP polling**, bukan MQTT — dipilih karena hosting gratis (mis. AeonFree) memblokir koneksi MQTT ke ESP32 lewat JS-challenge anti-bot.
 
-## 🗂️ Struktur Folder
+##  Struktur Folder
 
 ```
 ├── ESP32/
@@ -36,7 +36,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus t
 └── cmd.txt                       # Contoh perintah SSH tunnel (localhost.run)
 ```
 
-## ⚙️ Cara Kerja Singkat
+##  Cara Kerja Singkat
 
 1. ESP32 membaca sensor getaran & GPS, lalu setiap ±5 detik mengirim status ke `api/update_status.php` (heartbeat).
 2. Dashboard (`index.php` + `app.js`) polling `api/get_status.php` untuk menampilkan status terkini dan lokasi di peta.
@@ -44,7 +44,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus t
 4. Kontrol relay manual dari dashboard dikirim lewat `api/send_command.php`, lalu ESP32 mengambilnya via `api/get_command.php` dan mengonfirmasi lewat `api/ack_command.php`.
 5. Karena link tunnel (ngrok/localhost.run) berubah setiap restart, base URL server disimpan di GitHub Gist dan dibaca otomatis oleh ESP32 (`Preferences`) — tidak perlu flash ulang firmware setiap ganti link.
 
-## 🧰 Kebutuhan
+##  Kebutuhan
 
 **Hardware:**
 - ESP32
@@ -59,7 +59,7 @@ Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus t
 - XAMPP (Apache + MySQL/PHP) untuk menjalankan backend secara lokal
 - SSH client (untuk tunnel `localhost.run`) atau ngrok, agar ESP32 bisa mengakses server lokal dari luar jaringan
 
-## 🚀 Instalasi & Menjalankan
+##  Instalasi & Menjalankan
 
 1. **Database** — buat database MySQL (nama sesuai `db.php`, default: `keamanan_kendaraan`). Struktur tabel dibuat otomatis saat `db.php` pertama kali diakses, jadi `schema.sql` tidak wajib di-import.
 2. **Konfigurasi `db.php`** — sesuaikan `$DB_HOST`, `$DB_USER`, `$DB_PASS`, `$DB_NAME` dengan kredensial database kamu. **Jangan commit kredensial database produksi ke repo publik.**
@@ -78,12 +78,12 @@ Sistem keamanan kendaraan yang mendeteksi getaran/percobaan pencurian, memutus t
 | `api/ack_command.php` | POST | ESP32 | Konfirmasi perintah sudah/tidak dijalankan |
 | `api/command_status.php` | GET | Dashboard | Cek status eksekusi sebuah perintah |
 
-## 🔒 Catatan Keamanan
+##  Catatan Keamanan
 
 - Jangan commit SSID/password WiFi asli maupun kredensial database produksi ke repository publik — gunakan nilai placeholder di kode yang diunggah.
 - `send_command.php` sengaja dibatasi hanya menerima perintah `relay` dari web, untuk mencegah penyalahgunaan endpoint.
 
-## 📌 Status
+##  Status
 
 Proyek dalam pengembangan aktif — kontribusi/perubahan berikutnya dicatat lewat commit history di repo ini.
 ##  Author
